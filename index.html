@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team CV Web App - Smart Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                screens: {
+                    'sm': '640px',
+                    'md': '768px',
+                    'lg': '1200px',
+                    'xl': '1536px',
+                }
+            }
+        }
+    </script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+
+        .pii-masked {
+            filter: blur(4px);
+            transition: filter 0.3s ease, color 0.3s;
+            cursor: help;
+            user-select: none;
+            color: transparent;
+            text-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
+        }
+
+        .pii-masked:hover {
+            filter: blur(0);
+            color: inherit;
+            text-shadow: none;
+            user-select: auto;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @media print {
+            nav, .no-print { display: none !important; }
+            body { background: white; }
+            .pii-masked { filter: none; color: inherit; text-shadow: none; }
+        }
+    </style>
+</head>
+
+<body class="text-gray-800 antialiased min-h-screen flex flex-col">
+
+    <!-- Navigation (Убраны лишние топики, оставлен только чистый функционал) -->
+    <nav class="bg-white/90 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center gap-8">
+                    <a href="#home" class="font-black text-2xl tracking-tighter text-blue-600">Team<span class="text-gray-900">CV</span></a>
+                    <div class="hidden md:flex space-x-1 flex-wrap">
+                        <a href="#home" class="px-3 py-2 rounded-lg text-sm font-semibold text-gray-900 bg-blue-50 transition"><i class="fas fa-users mr-2 text-blue-600"></i>Team Directory</a>
+                    </div>
+                </div>
+                <a href="#add" class="bg-gray-900 text-white px-5 py-2 rounded-lg text-sm font-bold shadow-md hover:bg-blue-600 transition flex items-center"><i class="fas fa-plus mr-2"></i>Add CV</a>
+            </div>
+        </div>
+    </nav>
+
+    <main id="app" class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full"></main>
+
+    <script>
+        const mockMembers = [
+            {
+                id: 1, photoUrl: "https://i.pravatar.cc/150?img=11",
+                personalDetails: { fullName: "Marcus Aris", gender: "Male", dateOfBirth: "1992-05-14", placeOfBirth: "London, UK", citizenship: "British", maritalStatus: "Single", homeAddress: "10 Downing St, London", phone: "+44-7700-900077", email: "m.aris@abstracted.local" },
+                foreignLanguages: [{ name: "Spanish", level: "B1" }],
+                programmingLanguages: [{ name: "Python", level: "Advanced" }, { name: "Go", level: "Intermediate" }, { name: "SQL", level: "Expert" }],
+                workExperience: [{ company: "CloudNet", role: "Backend Engineer", duration: "March 2023 - Present" }, { company: "TechCorp", role: "Junior Dev", duration: "Jan 2021 - Feb 2023" }],
+                scientificInterests: ["Distributed Systems", "Cryptography"], publications: ["Optimizing Node Graphs (2022)"], diplomasAndAwards: ["AWS Certified Developer"], favoriteSchoolSubjects: ["Computer Science", "Physics"],
+                hardwareSetup: { computerAccess: true, hoursPerWeek: 40 }, hobbies: ["Bouldering", "Photography"], talents: ["Rapid prototyping"]
+            },
+            {
+                id: 2, photoUrl: "https://i.pravatar.cc/150?img=5",
+                personalDetails: { fullName: "Sarah Jenkins", gender: "Female", dateOfBirth: "1988-11-22", placeOfBirth: "New York, USA", citizenship: "American", maritalStatus: "Married", homeAddress: "123 Broadway, NY", phone: "+1-555-0198", email: "s.jenkins@abstracted.local" },
+                foreignLanguages: [{ name: "French", level: "C1" }, { name: "Japanese", level: "A2" }],
+                programmingLanguages: [{ name: "JavaScript", level: "Advanced" }, { name: "TypeScript", level: "Expert" }, { name: "React", level: "Advanced" }],
+                workExperience: [{ company: "WebCorp", role: "Frontend Lead", duration: "Jan 2020 - Present" }],
+                scientificInterests: ["UI/UX Design", "Accessibility"], publications: [], diplomasAndAwards: ["Design Award 2022"], favoriteSchoolSubjects: ["Art", "Math"],
+                hardwareSetup: { computerAccess: true, hoursPerWeek: 35 }, hobbies: ["Design", "Yoga"], talents: ["Public Speaking"]
+            }
+        ];
+
+        const app = document.getElementById('app');
+
+        function render() {
+            const hash = window.location.hash || '#home';
+            if (hash === '#home') renderHome();
+            else if (hash === '#add') renderCV(null, true);
+            else if (hash.startsWith('#member/')) renderCV(parseInt(hash.split('/')[1]), false);
+            else if (hash.startsWith('#edit/')) renderCV(parseInt(hash.split('/')[1]), true);
+            else render404('The requested URL was not found on this server.');
+        }
+        window.addEventListener('hashchange', render);
+        window.addEventListener('DOMContentLoaded', render);
+
+        // === 1. SMART HOME (DIRECTORY + FILTERS) ===
+        function renderHome() {
+            app.innerHTML = `
+                <div class="fade-in">
+                    <!-- Заголовок и контролы поиска/фильтрации -->
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                        <div>
+                            <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight">Team Directory</h1>
+                            <p class="text-gray-500 mt-1">Found: <span id="memberCount">${mockMembers.length}</span> members</p>
+                        </div>
+                        <div class="flex w-full md:w-auto gap-2">
+                            <div class="relative flex-1 md:w-72">
+                                <i class="fas fa-search absolute left-3 top-3.5 text-gray-400"></i>
+                                <input type="text" id="searchInput" placeholder="Search name, role, company..." class="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded-xl focus:ring-blue-500 focus:border-blue-500 block pl-10 p-3 shadow-sm transition" oninput="applyFilters()">
+                            </div>
+                            <button onclick="toggleFilters()" class="bg-gray-900 hover:bg-blue-600 text-white px-4 py-3 rounded-xl shadow-sm transition flex items-center gap-2 font-bold text-sm">
+                                <i class="fas fa-filter"></i> <span class="hidden sm:inline">Filters</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Панель фильтров (скрыта по умолчанию) -->
+                    <div id="filterPanel" class="hidden bg-white p-6 rounded-2xl border border-gray-200 shadow-sm mb-8 transition-all">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div>
+                                <label class="text-xs font-bold text-gray-500 uppercase mb-2 block">Tech Stack</label>
+                                <select id="filterTech" class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5" onchange="applyFilters()">
+                                    <option value="">Any Technology</option>
+                                    <option value="python">Python</option>
+                                    <option value="javascript">JavaScript</option>
+                                    <option value="react">React</option>
+                                    <option value="sql">SQL</option>
+                                    <option value="go">Go</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-xs font-bold text-gray-500 uppercase mb-2 block">Foreign Languages</label>
+                                <select id="filterLang" class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5" onchange="applyFilters()">
+                                    <option value="">Any Language</option>
+                                    <option value="english">English</option>
+                                    <option value="spanish">Spanish</option>
+                                    <option value="french">French</option>
+                                    <option value="japanese">Japanese</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-xs font-bold text-gray-500 uppercase mb-2 block">Interests / Domains</label>
+                                <select id="filterInterest" class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5" onchange="applyFilters()">
+                                    <option value="">Any Interest</option>
+                                    <option value="ui/ux">UI/UX Design</option>
+                                    <option value="distributed">Distributed Systems</option>
+                                    <option value="cryptography">Cryptography</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mt-4 flex justify-end">
+                            <button onclick="resetFilters()" class="text-sm text-red-600 hover:text-red-800 font-semibold flex items-center gap-1"><i class="fas fa-times"></i> Clear Filters</button>
+                        </div>
+                    </div>
+
+                    <!-- Контейнер для карточек -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" id="membersGrid"></div>
+                </div>
+            `;
+            // Первичный рендер сетки
+            applyFilters();
+        }
+
+        window.toggleFilters = function() {
+            document.getElementById('filterPanel').classList.toggle('hidden');
+        };
+
+        window.resetFilters = function() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('filterTech').value = '';
+            document.getElementById('filterLang').value = '';
+            document.getElementById('filterInterest').value = '';
+            applyFilters();
+        };
+
+        // Главная функция фильтрации и перерисовки карточек
+        window.applyFilters = function() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const tech = document.getElementById('filterTech').value.toLowerCase();
+            const lang = document.getElementById('filterLang').value.toLowerCase();
+            const interest = document.getElementById('filterInterest').value.toLowerCase();
+
+            const filtered = mockMembers.filter(m => {
+                // 1. Умный текстовый поиск (имя, должность, все компании из опыта)
+                const name = m.personalDetails.fullName.toLowerCase();
+                const currentRole = m.workExperience.length ? m.workExperience[0].role.toLowerCase() : '';
+                const allCompanies = m.workExperience.map(w => w.company.toLowerCase()).join(' ');
+                const matchesQuery = name.includes(query) || currentRole.includes(query) || allCompanies.includes(query);
+
+                // 2. Фильтр по стеку технологий
+                const matchesTech = tech === '' || m.programmingLanguages.some(l => l.name.toLowerCase().includes(tech));
+
+                // 3. Фильтр по языкам
+                const matchesLang = lang === '' || m.foreignLanguages.some(l => l.name.toLowerCase().includes(lang));
+
+                // 4. Фильтр по интересам
+                const matchesInterest = interest === '' || m.scientificInterests.some(i => i.toLowerCase().includes(interest));
+
+                return matchesQuery && matchesTech && matchesLang && matchesInterest;
+            });
+
+            // Обновляем счетчик
+            document.getElementById('memberCount').innerText = filtered.length;
+
+            // Перерисовываем сетку
+            const grid = document.getElementById('membersGrid');
+            if (filtered.length === 0) {
+                grid.innerHTML = `
+                    <div class="col-span-full bg-white p-10 rounded-2xl border border-gray-200 text-center shadow-sm">
+                        <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400 text-2xl"><i class="fas fa-search"></i></div>
+                        <h3 class="text-lg font-bold text-gray-900 mb-1">No matches found</h3>
+                        <p class="text-sm text-gray-500 mb-4">Try adjusting your filters or search query.</p>
+                        <button onclick="resetFilters()" class="text-blue-600 font-semibold hover:underline">Clear all filters</button>
+                    </div>`;
+                return;
+            }
+
+            grid.innerHTML = filtered.map(m => {
+                const role = m.workExperience.length ? m.workExperience[0].role : 'Unknown';
+                // Выводим 2 главных навыка в виде тегов на карточке
+                const topSkills = m.programmingLanguages.slice(0, 2).map(l => `<span class="text-[10px] bg-gray-100 text-gray-600 px-2 py-1 rounded-md font-semibold">${l.name}</span>`).join('');
+
+                return `
+                    <a href="#member/${m.id}" class="member-card bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-xl hover:border-blue-200 transition-all duration-300 group flex flex-col h-full">
+                        <img src="${m.photoUrl}" class="w-20 h-20 rounded-full mx-auto object-cover ring-4 ring-gray-50 group-hover:ring-blue-50 transition-all mb-4">
+                        <h2 class="text-lg font-bold text-center text-gray-900 group-hover:text-blue-600">${m.personalDetails.fullName}</h2>
+                        <p class="text-sm font-medium text-center text-gray-500 mt-1 mb-4 flex-grow">${role}</p>
+                        <div class="flex flex-wrap justify-center gap-1.5 mt-auto pt-4 border-t border-gray-50">
+                            ${topSkills}
+                            ${m.programmingLanguages.length > 2 ? `<span class="text-[10px] bg-gray-50 text-gray-400 px-2 py-1 rounded-md font-semibold">+${m.programmingLanguages.length - 2}</span>` : ''}
+                        </div>
+                    </a>
+                `;
+            }).join('');
+        };
+
+        // === GLOBAL DYNAMIC INPUT FUNCTIONS (оставлены без изменений) ===
+        window.isCurrentEditMode = false;
+        window.currentInputClass = "";
+
+        window.addExperience = function(company='', role='', start='', end='') {
+            const container = document.getElementById('experienceList');
+            if (!container) return;
+            const id = 'exp_' + Date.now() + Math.floor(Math.random() * 1000);
+            const ro = window.isCurrentEditMode ? '' : 'readonly';
+            const html = `
+                <div class="exp-item bg-white/50 p-4 rounded-xl border border-gray-200 relative group" id="${id}">
+                    ${window.isCurrentEditMode ? `<button type="button" onclick="document.getElementById('${id}').remove()" class="absolute -top-3 -right-3 bg-red-100 text-red-600 w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow-sm border border-red-200"><i class="fas fa-times"></i></button>` : ''}
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                        <div>
+                            <label class="text-[10px] uppercase font-bold text-gray-400 mb-1 block">Company Name</label>
+                            <input type="text" name="expCompany" placeholder="e.g. Google" value="${company}" class="${window.currentInputClass}" required ${ro}>
+                        </div>
+                        <div>
+                            <label class="text-[10px] uppercase font-bold text-gray-400 mb-1 block">Role / Position</label>
+                            <input type="text" name="expRole" placeholder="e.g. Backend Engineer" value="${role}" class="${window.currentInputClass}" required ${ro}>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="text-[10px] uppercase font-bold text-gray-400 mb-1 block">Start Date</label>
+                            <input type="text" name="expStart" placeholder="Jan 2021" value="${start}" class="${window.currentInputClass}" ${ro}>
+                        </div>
+                        <div>
+                            <label class="text-[10px] uppercase font-bold text-gray-400 mb-1 block">End Date</label>
+                            <input type="text" name="expEnd" placeholder="Present" value="${end}" class="${window.currentInputClass}" ${ro}>
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', html);
+        };
+
+        window.addProgLang = function(name='', level='') {
+            const container = document.getElementById('progLangList');
+            if (!container) return;
+            const id = 'pl_' + Date.now() + Math.floor(Math.random() * 1000);
+            const ro = window.isCurrentEditMode ? '' : 'readonly';
+            const html = `
+                <div class="pl-item flex gap-3 relative group items-center" id="${id}">
+                    <input type="text" name="plName" placeholder="Language (e.g. Python)" value="${name}" class="${window.currentInputClass} flex-1" ${ro}>
+                    <input type="text" name="plLevel" placeholder="Level (e.g. Advanced)" value="${level}" class="${window.currentInputClass} flex-1" ${ro}>
+                    ${window.isCurrentEditMode ? `<button type="button" onclick="document.getElementById('${id}').remove()" class="text-red-500 hover:text-red-700 p-2 opacity-0 group-hover:opacity-100 transition"><i class="fas fa-trash-alt"></i></button>` : ''}
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', html);
+        };
+
+        window.addForLang = function(name='', level='') {
+            const container = document.getElementById('forLangList');
+            if (!container) return;
+            const id = 'fl_' + Date.now() + Math.floor(Math.random() * 1000);
+            const ro = window.isCurrentEditMode ? '' : 'readonly';
+            const html = `
+                <div class="fl-item flex gap-3 relative group items-center" id="${id}">
+                    <input type="text" name="flName" placeholder="Language (e.g. English)" value="${name}" class="${window.currentInputClass} flex-1" ${ro}>
+                    <input type="text" name="flLevel" placeholder="Level (e.g. B2)" value="${level}" class="${window.currentInputClass} flex-1" ${ro}>
+                    ${window.isCurrentEditMode ? `<button type="button" onclick="document.getElementById('${id}').remove()" class="text-red-500 hover:text-red-700 p-2 opacity-0 group-hover:opacity-100 transition"><i class="fas fa-trash-alt"></i></button>` : ''}
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', html);
+        };
+
+
+        // === 2. UNIFIED VIEW & EDIT FULL CV ===
+        window.renderCV = function (id, isEditMode) {
+            let m;
+            if (id === null) {
+                m = {
+                    id: Date.now(), photoUrl: "https://placehold.co/150x150/e2e8f0/94a3b8?text=New",
+                    personalDetails: { fullName: "", gender: "Male", dateOfBirth: "", placeOfBirth: "", citizenship: "", maritalStatus: "Single", homeAddress: "", phone: "", email: "" },
+                    foreignLanguages: [], programmingLanguages: [], workExperience: [],
+                    scientificInterests: [], publications: [], diplomasAndAwards: [], favoriteSchoolSubjects: [],
+                    hardwareSetup: { computerAccess: false, hoursPerWeek: 0 }, hobbies: [], talents: []
+                };
+            } else {
+                m = mockMembers.find(member => member.id === id);
+                if (!m) return render404(`Member with ID ${id} not found.`);
+            }
+
+            const ro = isEditMode ? '' : 'readonly';
+            const dis = isEditMode ? '' : 'disabled';
+
+            const inputClass = "w-full text-sm transition-all bg-white border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 read-only:bg-transparent read-only:border-transparent read-only:p-0 read-only:focus:ring-0 read-only:text-gray-900 read-only:resize-none read-only:cursor-default";
+            const darkInputClass = "w-full transition-all bg-black/20 border border-white/30 text-white rounded-lg p-2 focus:ring-2 focus:ring-white focus:border-white read-only:bg-transparent read-only:border-transparent read-only:p-0 read-only:focus:ring-0 read-only:text-white read-only:cursor-default placeholder-white/60";
+            const badgeSelectClass = "bg-blue-500/20 text-blue-300 text-xs font-semibold px-3 py-2 rounded-full border border-blue-400/30 focus:ring-2 focus:ring-white disabled:appearance-none disabled:opacity-100 disabled:cursor-default";
+
+            const val = (v) => v || '';
+            const arr = (a) => (a || []).join(', ');
+
+            window.isCurrentEditMode = isEditMode;
+            window.currentInputClass = inputClass;
+
+            app.innerHTML = `
+                <div class="fade-in max-w-5xl mx-auto space-y-8">
+                    <!-- Header Actions -->
+                    <div class="flex justify-between items-center no-print">
+                        <a href="#home" class="text-gray-500 hover:text-gray-900 transition font-medium flex items-center">
+                            <i class="fas fa-arrow-left mr-2"></i> Back to Directory
+                        </a>
+                        <div class="flex gap-3 flex-wrap">
+                            ${isEditMode ? `
+                                <button type="submit" form="cvForm" class="bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded-lg text-sm font-bold transition flex items-center shadow-md">
+                                    <i class="fas fa-save mr-2"></i> Save Changes
+                                </button>
+                                <a href="${id ? '#member/' + id : '#home'}" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-bold transition flex items-center border border-gray-200">
+                                    Cancel
+                                </a>
+                            ` : `
+                                <a href="#edit/${m.id}" class="bg-white hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg text-sm font-bold transition flex items-center border border-gray-200">
+                                    <i class="fas fa-edit mr-2"></i> Edit
+                                </a>
+                                <button onclick="window.print()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-bold transition flex items-center border border-gray-200">
+                                    <i class="fas fa-file-pdf mr-2"></i> Export PDF
+                                </button>
+                                <button type="button" onclick="confirmDelete(${m.id})" class="bg-red-50 text-red-600 hover:bg-red-100 px-4 py-2 rounded-lg text-sm font-bold transition flex items-center border border-red-200">
+                                    <i class="fas fa-trash-alt mr-2"></i> Delete
+                                </button>
+                            `}
+                        </div>
+                    </div>
+
+                    <form id="cvForm" onsubmit="saveCV(event, ${id === null ? m.id : id})">
+                        <!-- Profile Banner -->
+                        <div class="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden mb-8">
+                            <div class="p-8 bg-gradient-to-r from-slate-900 to-slate-800 text-white flex flex-col md:flex-row items-start gap-6 relative">
+                                <img src="${m.photoUrl}" class="w-28 h-28 rounded-full object-cover ring-4 ring-white/20 shadow-xl">
+                                <div class="text-left flex-1 w-full space-y-3">
+                                    <div class="flex flex-col md:flex-row md:items-center gap-3">
+                                        <input type="text" id="editFullName" class="text-3xl font-extrabold ${darkInputClass} md:w-1/2" value="${val(m.personalDetails.fullName)}" placeholder="Full Name" ${ro} required>
+                                    </div>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="text-xs text-blue-300 font-semibold mb-1 block">Current Role</label>
+                                            <input type="text" id="editRole" class="text-lg text-blue-400 font-medium ${darkInputClass}" value="${val(m.workExperience[0]?.role)}" placeholder="e.g. Frontend Engineer" ${ro}>
+                                        </div>
+                                        <div>
+                                            <label class="text-xs text-blue-300 font-semibold mb-1 block">Location</label>
+                                            <input type="text" id="editAddress" class="text-sm text-gray-300 ${darkInputClass}" value="${val(m.personalDetails.homeAddress)}" placeholder="City, Country" ${ro}>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Detailed Content Grid -->
+                            <div class="p-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+                                <!-- Left Column -->
+                                <div class="lg:col-span-2 space-y-8 bg-gray-50/30 rounded-2xl p-6 border border-gray-100">
+                                    <!-- Dynamic Work Experience -->
+                                    <div>
+                                        <div class="flex justify-between items-center mb-4">
+                                            <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center"><i class="fas fa-briefcase text-blue-500 mr-2"></i> Work Experience</h3>
+                                            ${isEditMode ? `<button type="button" onclick="addExperience()" class="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-200 transition font-bold"><i class="fas fa-plus mr-1"></i> Add Position</button>` : ''}
+                                        </div>
+                                        <div id="experienceList" class="space-y-4"></div>
+                                    </div>
+
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 pt-6 border-t border-gray-200">
+                                        <!-- Dynamic Programming Languages -->
+                                        <div>
+                                            <div class="flex justify-between items-center mb-4">
+                                                <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center"><i class="fas fa-code text-indigo-500 mr-2"></i> Programming Languages</h3>
+                                                ${isEditMode ? `<button type="button" onclick="addProgLang()" class="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded hover:bg-indigo-200 transition font-bold"><i class="fas fa-plus"></i></button>` : ''}
+                                            </div>
+                                            <div id="progLangList" class="space-y-3"></div>
+                                        </div>
+                                        
+                                        <!-- Dynamic Foreign Languages -->
+                                        <div>
+                                            <div class="flex justify-between items-center mb-4">
+                                                <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center"><i class="fas fa-language text-emerald-500 mr-2"></i> Foreign Languages</h3>
+                                                ${isEditMode ? `<button type="button" onclick="addForLang()" class="text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded hover:bg-emerald-200 transition font-bold"><i class="fas fa-plus"></i></button>` : ''}
+                                            </div>
+                                            <div id="forLangList" class="space-y-3"></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="pt-6 border-t border-gray-200 space-y-4">
+                                        <div>
+                                            <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Scientific Interests</h3>
+                                            <textarea id="editInterests" class="${inputClass}" rows="2" placeholder="Machine Learning, UI/UX" ${ro}>${arr(m.scientificInterests)}</textarea>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Right Column: PII, Hardware, Hobbies -->
+                                <div class="space-y-6 bg-gray-50/70 p-6 rounded-2xl border border-gray-100">
+                                    <div>
+                                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 flex items-center justify-between">
+                                            <span>Personal Details</span>
+                                            <span class="text-[10px] bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded font-bold no-print">PII Protected</span>
+                                        </h3>
+                                        <div class="space-y-3 text-xs">
+                                            <div class="flex justify-between items-center border-b border-gray-200 pb-1.5"><span class="text-gray-500 w-1/3">Email:</span>
+                                                <input type="email" id="editEmail" class="${inputClass} ${isEditMode ? '' : 'pii-masked font-mono'} text-right w-2/3" value="${val(m.personalDetails.email)}" required ${ro}>
+                                            </div>
+                                            <div class="flex justify-between items-center border-b border-gray-200 pb-1.5"><span class="text-gray-500 w-1/3">Phone:</span>
+                                                <input type="text" id="editPhone" class="${inputClass} ${isEditMode ? '' : 'pii-masked font-mono'} text-right w-2/3" value="${val(m.personalDetails.phone)}" ${ro}>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Hardware Setup</h3>
+                                        <div class="flex items-center justify-between mt-1"><span class="text-xs text-gray-600">Weekly Hours:</span>
+                                            <div class="flex items-center text-blue-600 font-bold">
+                                                <input type="number" id="editHoursPerWeek" class="${inputClass} w-16 text-right font-bold text-blue-600" value="${m.hardwareSetup.hoursPerWeek}" ${ro}> 
+                                                <span class="ml-1">h</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Hobbies</h3>
+                                        <textarea id="editHobbies" class="${inputClass}" rows="2" placeholder="Yoga, Photography, Reading" ${ro}>${arr(m.hobbies)}</textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            `;
+
+            // Initialize lists with data after containers rendered
+            m.workExperience.forEach(w => {
+                let parts = w.duration ? w.duration.split(' - ') : ['', ''];
+                addExperience(w.company, w.role, parts[0] || w.duration, parts[1] || '');
+            });
+            if (m.workExperience.length === 0 && isEditMode) addExperience();
+
+            m.programmingLanguages.forEach(l => addProgLang(l.name, l.level));
+            if (m.programmingLanguages.length === 0 && isEditMode) addProgLang();
+
+            m.foreignLanguages.forEach(l => addForLang(l.name, l.level));
+            if (m.foreignLanguages.length === 0 && isEditMode) addForLang();
+        }
+
+        window.saveCV = function (event, id) {
+            event.preventDefault();
+            const fullName = document.getElementById('editFullName')?.value || '';
+            const hoursStr = document.getElementById('editHoursPerWeek')?.value || '0';
+            const hours = parseInt(hoursStr, 10);
+
+            if (/\d/.test(fullName)) return render400("Validation failed: Full Name cannot contain numbers.");
+            if (isNaN(hours) || hours < 0 || hours > 168) return render400("Validation failed: Hours per week must be between 0 and 168.");
+
+            const isNew = !mockMembers.find(m => m.id === id);
+            const m = isNew ? {
+                id: id, photoUrl: "https://placehold.co/150x150/e2e8f0/94a3b8?text=New",
+                personalDetails: {}, hardwareSetup: {}, workExperience: [], programmingLanguages: [], foreignLanguages: [], scientificInterests: [], hobbies: []
+            } : mockMembers.find(member => member.id === id);
+
+            m.personalDetails.fullName = fullName;
+            m.personalDetails.homeAddress = document.getElementById('editAddress')?.value;
+            m.personalDetails.email = document.getElementById('editEmail')?.value;
+            m.personalDetails.phone = document.getElementById('editPhone')?.value;
+            m.hardwareSetup.hoursPerWeek = hours;
+            
+            m.scientificInterests = (document.getElementById('editInterests')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
+            m.hobbies = (document.getElementById('editHobbies')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
+            
+            const expItems = document.querySelectorAll('.exp-item');
+            m.workExperience = Array.from(expItems).map(item => {
+                const company = item.querySelector('[name="expCompany"]').value.trim();
+                const role = item.querySelector('[name="expRole"]').value.trim();
+                const start = item.querySelector('[name="expStart"]').value.trim();
+                const end = item.querySelector('[name="expEnd"]').value.trim();
+                let duration = start && end ? `${start} - ${end}` : (start || end);
+                return { company, role, duration };
+            }).filter(e => e.company || e.role);
+
+            if (m.workExperience.length > 0) {
+                const headlineRole = document.getElementById('editRole')?.value;
+                if (headlineRole) m.workExperience[0].role = headlineRole;
+            }
+
+            const plItems = document.querySelectorAll('.pl-item');
+            m.programmingLanguages = Array.from(plItems).map(item => ({
+                name: item.querySelector('[name="plName"]').value.trim(),
+                level: item.querySelector('[name="plLevel"]').value.trim()
+            })).filter(l => l.name);
+
+            const flItems = document.querySelectorAll('.fl-item');
+            m.foreignLanguages = Array.from(flItems).map(item => ({
+                name: item.querySelector('[name="flName"]').value.trim(),
+                level: item.querySelector('[name="flLevel"]').value.trim()
+            })).filter(l => l.name);
+
+            if (isNew) mockMembers.push(m);
+
+            customAlert('CV Saved Successfully!');
+            window.location.hash = '#member/' + id;
+        };
+
+        window.render400 = function (message) {
+            app.innerHTML = `
+                <div class="fade-in flex flex-col items-center justify-center min-h-[50vh] text-center px-4">
+                    <h1 class="text-9xl font-black text-red-100 mb-4 tracking-tighter">400</h1>
+                    <h2 class="text-3xl font-extrabold text-gray-900 mb-3"><i class="fas fa-exclamation-triangle text-red-500 mr-3"></i>Bad Request</h2>
+                    <p class="text-lg text-gray-500 mb-8 max-w-md mx-auto">${message}</p>
+                    <button onclick="window.history.back()" class="bg-gray-900 text-white px-6 py-3 rounded-xl text-sm font-bold shadow-md hover:bg-red-600 transition flex items-center gap-2">
+                        <i class="fas fa-arrow-left"></i> Back to Form
+                    </button>
+                </div>
+            `;
+        };
+
+        window.customAlert = function (msg) {
+            const alertHtml = `
+                <div id="customAlert" class="fixed bottom-4 right-4 z-[100] bg-gray-900 text-white px-6 py-3 rounded-xl shadow-2xl fade-in flex items-center gap-3">
+                    <i class="fas fa-info-circle text-blue-400"></i>
+                    <span class="font-medium text-sm">${msg}</span>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', alertHtml);
+            setTimeout(() => {
+                const el = document.getElementById('customAlert');
+                if (el) el.remove();
+            }, 3000);
+        };
+
+        window.confirmDelete = function (id) {
+            const modalHtml = `
+                <div id="deleteModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-gray-900/50 backdrop-blur-sm fade-in">
+                    <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl mx-4 border border-gray-100">
+                        <div class="flex items-center justify-center w-14 h-14 rounded-full bg-red-100 mb-5 mx-auto">
+                            <i class="fas fa-trash-alt text-red-600 text-xl"></i>
+                        </div>
+                        <h3 class="text-xl font-extrabold text-center text-gray-900 mb-2">Delete this CV?</h3>
+                        <p class="text-center text-sm text-gray-500 mb-6">Are you sure you want to permanently delete this member? This action cannot be undone.</p>
+                        <div class="flex gap-3 justify-center">
+                            <button onclick="document.getElementById('deleteModal').remove()" class="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl font-bold transition">Cancel</button>
+                            <button onclick="executeDelete(${id})" class="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold transition shadow-md">Delete</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+        };
+
+        window.executeDelete = function (id) {
+            const index = mockMembers.findIndex(m => m.id === id);
+            if (index > -1) mockMembers.splice(index, 1);
+            document.getElementById('deleteModal').remove();
+            customAlert('CV successfully deleted.');
+            window.location.hash = '#home';
+        };
+
+        function render404(message = "Page not found") {
+            app.innerHTML = `
+                <div class="fade-in flex flex-col items-center justify-center min-h-[50vh] text-center px-4">
+                    <h1 class="text-9xl font-black text-blue-100 mb-4 tracking-tighter">404</h1>
+                    <h2 class="text-3xl font-extrabold text-gray-900 mb-3"><i class="fas fa-search text-blue-500 mr-3"></i>Not Found</h2>
+                    <p class="text-lg text-gray-500 mb-8 max-w-md mx-auto">${message}</p>
+                    <a href="#home" class="bg-gray-900 text-white px-6 py-3 rounded-xl text-sm font-bold shadow-md hover:bg-blue-600 transition flex items-center gap-2">
+                        <i class="fas fa-home"></i> Back to Directory
+                    </a>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
